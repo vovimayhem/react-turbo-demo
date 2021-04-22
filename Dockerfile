@@ -74,6 +74,20 @@ WORKDIR ${APP_PATH}
 # Change to the developer user:
 USER ${DEVELOPER_USERNAME}
 
+# Copy the project's Gemfile and Gemfile.lock files:
+COPY --chown=${DEVELOPER_USERNAME} Gemfile* ${APP_PATH}/
+
+# Install the gems in the Gemfile, except for the ones in the "development"
+# group, which shouldn't be required in order to  run the tests with the leanest
+# Docker image possible:
+RUN bundle install --jobs=4 --retry=3 --without="development"
+
+# Copy the project's node package dependency lists:
+COPY --chown=${DEVELOPER_USERNAME} package.json yarn.lock ${APP_PATH}/
+
+# Install the project's node packages:
+RUN yarn install
+
 # Stage 3: Development =========================================================
 # In this stage we'll add the packages, libraries and tools required in the
 # day-to-day development process.
@@ -101,3 +115,104 @@ RUN echo "${DEVELOPER_USERNAME} ALL=(ALL) NOPASSWD:ALL" | tee "/etc/sudoers.d/${
 
 # Change back to the developer user:
 USER ${DEVELOPER_USERNAME}
+# Install the gems in the Gemfile, this time including the previously ignored
+# "development" gems - We'll need to delete the bundler config, as it currently
+# belongs to "root":
+RUN bundle install --jobs=4 --retry=3 --with="development"
+
+# Put the `node_modules/.keep` file, to prevent Git from thinking it was removed
+RUN touch node_modules/.keep
+
+# Stage 4: Builder =============================================================
+# In this stage we'll add the rest of the code, compile assets, and perform a 
+# cleanup for the releasable image.
+
+# Use the "testing" stage as base:
+FROM testing AS builder
+
+# Receive the developer username and the app path arguments again, as ARGS
+# won't persist between stages on non-buildkit builds:
+ARG DEVELOPER_USERNAME=you
+ARG APP_PATH=/srv/react-turbo-demo
+
+# Copy the full contents of the project:
+COPY --chown=${DEVELOPER_USERNAME} . ${APP_PATH}/
+
+# Precompile the application assets:
+RUN export SECRET_KEY_BASE=10167c7f7654ed02b3557b05b88ece RAILS_ENV=production \
+ && rails assets:precompile \
+ # Test if everything is OK:
+ && rails secret > /dev/null
+
+# Remove installed gems that belong to the development & test groups -
+# we'll copy the remaining system gems into the deployable image on the next
+# stage:
+RUN bundle config without development test && bundle clean --force
+
+# Change to root, before performing the final cleanup:
+USER root
+
+# Remove unneeded gem cache files (cached *.gem, *.o, *.c):
+RUN rm -rf /usr/local/bundle/cache/*.gem \
+ && find /usr/local/bundle/gems/ -name "*.c" -delete \
+ && find /usr/local/bundle/gems/ -name "*.o" -delete
+
+# Remove project files not used on release image:
+RUN rm -rf \
+    .rspec \
+    Guardfile \
+    bin/rspec \
+    bin/checkdb \
+    bin/dumpdb \
+    bin/restoredb \
+    bin/setup \
+    bin/spring \
+    bin/update \
+    bin/dev-entrypoint \
+    config/spring.rb \
+    node_modules \
+    tmp/cache/*
+
+# Stage 5: Release =============================================================
+# In this stage, we build the final, releasable, deployable Docker image, which
+# should be smaller than the images generated on previous stages:
+
+# Use the "runtime" stage as base:
+FROM runtime AS release
+
+# Copy the remaining installed gems from the "builder" stage:
+COPY --from=builder /usr/local/bundle /usr/local/bundle
+
+# Receive the app path argument again, as ARGS are not persisted between stages
+# on non-buildkit builds:
+ARG APP_PATH=/srv/react-turbo-demo
+
+# Copy the app code and compiled assets from the "builder" stage to the
+# final destination at /srv/react-turbo-demo:
+COPY --from=builder --chown=nobody:nogroup ${APP_PATH} /srv/react-turbo-demo
+
+# Set the container user to 'nobody':
+USER nobody
+
+# Set the RAILS and PORT default values:
+ENV HOME=/srv/react-turbo-demo RAILS_ENV=production PORT=3000
+
+# Set the installed app directory as the working directory:
+WORKDIR /srv/react-turbo-demo
+
+# Set the default command:
+CMD [ "puma" ]
+
+# Add label-schema.org labels to identify the build info:
+ARG SOURCE_BRANCH="master"
+ARG SOURCE_COMMIT="000000"
+ARG BUILD_DATE="2017-09-26T16:13:26Z"
+ARG IMAGE_NAME="icalialabs/react-turbo-demo:latest"
+LABEL org.label-schema.build-date=$BUILD_DATE \
+      org.label-schema.name="react-turbo-demo" \
+      org.label-schema.description="react-turbo-demo" \
+      org.label-schema.vcs-url="https://github.com/icalialabs/react-turbo-demo.git" \
+      org.label-schema.vcs-ref=$SOURCE_COMMIT \
+      org.label-schema.schema-version="1.0.0-rc1" \
+      build-target="release" \
+      build-branch=$SOURCE_BRANCH
