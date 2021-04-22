@@ -93,6 +93,8 @@ GEM
     nokogiri (1.11.3)
       mini_portile2 (~> 2.5.0)
       racc (~> 1.4)
+    on_container (0.0.14)
+      activesupport (>= 4)
     pg (1.2.3)
     puma (5.2.2)
       nio4r (~> 2.0)
@@ -183,6 +185,7 @@ DEPENDENCIES
   byebug
   jbuilder (~> 2.7)
   listen (~> 3.3)
+  on_container (= 0.0.14)
   pg (~> 1.1)
   puma (~> 5.0)
   rack-mini-profiler (~> 2.0)
