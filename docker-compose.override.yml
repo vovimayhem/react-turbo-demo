@@ -1,0 +1,54 @@
+version: "3.7"
+
+volumes:
+  gem_bundle:   # Used to store the app's gem libraries...
+  node_modules: # Used to store the app's node modules...
+
+services:
+  # The test container - we'll use this as the base for the rest
+  # of the app service definitions:
+  tests: &app
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+      args:
+        APP_PATH: ${PWD:-/srv/react-turbo-demo}
+        BUILDKIT_INLINE_CACHE: "1"
+        DEVELOPER_UID: ${UID:-1000}
+        DEVELOPER_USERNAME: ${USER:-you}
+    image: icalialabs/react-turbo-demo:development
+    volumes:
+      # Mount the app code into the app containers:
+      - .:${PWD:-/srv/react-turbo-demo}
+
+      # After mounting the app code, we will use volumes to store the project's
+      # gem libraries and node modules.
+
+      # In the case of the gem libraries, the "gem_bundle" volume will be
+      # initialized with the development image's installed gems. Gems can be
+      # added later during the development process without re-building the
+      # development image:
+      - gem_bundle:/usr/local/bundle
+
+      # In the case of the node modules, the "node_modules" volume will also be
+      # initialized with the development image's installed node modules. Also,
+      # notice how we're mounting the "node_modules" volume *inside* the mounted
+      # source code, effectively replacing any contents you might have on your
+      # project's "node_modules" folder in the container, offering several
+      # advantages:
+      # - We can run the frontend app either from the host (i.e. macOS) or
+      #   using containers without having the host & container clobber the npm
+      #   each other's packages, or avoid conflicting versions for macOS / Linux
+      # - Speeds up the npm operations on the container when running on
+      #   macOS/Windows, since a local volume bind on mac/win is significantly
+      #   slower than a Docker volume, and node module install is very sensitive
+      #   to I/O performance
+      - node_modules:${PWD:-/srv/react-turbo-demo}/node_modules
+
+    # Keep the stdin open, so we can attach to our app container's process
+    # and do things such as byebug, etc:
+    stdin_open: true
+
+    # Enable sending signals (CTRL+C, CTRL+P + CTRL+Q) into the container:
+    tty: true
