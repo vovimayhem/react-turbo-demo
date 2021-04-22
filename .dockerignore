@@ -58,3 +58,6 @@ coverage/*
 # Ignore CI/CD Files:
 .semaphore
 ci-compose.yml
+
+# Ignore RSpec state:
+spec/examples.txt

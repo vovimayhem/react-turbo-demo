@@ -21,6 +21,22 @@ Bundler.require(*Rails.groups)
 
 module ReactTurboDemo
   class Application < Rails::Application
+
+    config.i18n.enforce_available_locales = true
+
+  # don't generate RSpec tests for views and helpers
+  config.generators do |generator|
+    generator.test_framework :rspec
+    generator.view_specs false
+    generator.helper_specs false
+    generator.stylesheets false
+    generator.javascripts false
+    generator.helper false
+    generator.controller_specs false
+    generator.feature_specs false
+    generator.request_specs false
+    generator.routing_specs false
+  end
     # Initialize configuration defaults for originally generated Rails version.
     config.load_defaults 6.1
 
