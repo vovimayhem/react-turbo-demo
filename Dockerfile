@@ -14,8 +14,10 @@ RUN apt-get update && \
     ca-certificates \
     curl \
     libpq5 \
+    nodejs \
     openssl \
     tzdata \
+    yarn \
  && rm -rf /var/lib/apt/lists/*
 
 # Stage 2: testing =============================================================
@@ -42,9 +44,7 @@ RUN apt-get update \
  && apt-get install -y --no-install-recommends \
     build-essential \
     git \
-    libpq-dev \
-    nodejs \
-    yarn
+    libpq-dev
 
 # Receive the app path as an argument:
 ARG APP_PATH=/srv/react-turbo-demo
