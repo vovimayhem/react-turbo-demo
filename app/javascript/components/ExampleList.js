@@ -31,6 +31,7 @@ class ExampleList extends React.Component {
 
 ExampleList.propTypes = {
   items: PropTypes.array,
+  prev: PropTypes.string,
   next: PropTypes.string
 };
 export default ExampleList
