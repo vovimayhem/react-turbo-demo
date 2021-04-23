@@ -14,10 +14,8 @@ RUN apt-get update && \
     ca-certificates \
     curl \
     libpq5 \
-    nodejs \
     openssl \
     tzdata \
-    yarn \
  && rm -rf /var/lib/apt/lists/*
 
 # Stage 2: testing =============================================================
@@ -44,7 +42,9 @@ RUN apt-get update \
  && apt-get install -y --no-install-recommends \
     build-essential \
     git \
-    libpq-dev
+    libpq-dev \
+    nodejs \
+    yarn
 
 # Receive the app path as an argument:
 ARG APP_PATH=/srv/react-turbo-demo
@@ -86,7 +86,7 @@ RUN bundle install --jobs=4 --retry=3 --without="development"
 COPY --chown=${DEVELOPER_USERNAME} package.json yarn.lock ${APP_PATH}/
 
 # Install the project's node packages:
-RUN yarn install
+# RUN yarn install
 
 # Stage 3: Development =========================================================
 # In this stage we'll add the packages, libraries and tools required in the
@@ -121,7 +121,7 @@ USER ${DEVELOPER_USERNAME}
 RUN bundle install --jobs=4 --retry=3 --with="development"
 
 # Put the `node_modules/.keep` file, to prevent Git from thinking it was removed
-RUN touch node_modules/.keep
+# RUN touch node_modules/.keep
 
 # Stage 4: Builder =============================================================
 # In this stage we'll add the rest of the code, compile assets, and perform a 
